@@ -13,8 +13,9 @@ services:
     env_file:
       - .env
     volumes:
-      - n8n-data:/home/node/.n8n
-      - ./:/home/node/projects
+      - n8n-data:/home/node/.n8n/nodes
+      - ./packages/n8n/dist:/home/node/.n8n/custom
+      - ./packages/n8n/data :/home/node/import-data
     networks:
       - n8n-network
 

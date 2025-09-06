@@ -1,0 +1,52 @@
+name: Preview n8n Workflow
+
+on:
+  pull_request:
+    paths:
+      - "workflows/*.json"
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          npm install -g @mermaid-js/mermaid-cli jq
+
+      - name: Generate workflow previews
+        run: |
+          mkdir -p previews
+          for f in workflows/*.json; do
+            name=$(basename "$f" .json)
+            jq -r '
+              "graph TD\n" +
+              (.nodes[] | "\(.id)[\(.name)]") + "\n" +
+              (.connections | to_entries[] | .value[] | "\(.sourceId) --> \(.targetId)")
+            ' "$f" > "previews/$name.mmd"
+            mmdc -i "previews/$name.mmd" -o "previews/$name.png"
+          done
+
+      - name: Upload preview images
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-previews
+          path: previews/
+
+      - name: Upload images to PR
+        uses: devicons/public-upload-action@v1
+        with:
+          files: "previews/*.png"
+        id: upload
+
+      - name: Comment on PR with previews
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: n8n-preview
+          message: |
+            ## 🌀 n8n Workflow Preview
+
+            ${{ steps.upload.outputs.markdown }}
