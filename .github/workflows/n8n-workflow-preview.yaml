@@ -3,7 +3,7 @@ name: Preview n8n Workflow
 on:
   pull_request:
     paths:
-      - "workflows/*.json"
+      - "packages/n8n/data/workflows/*.json"
 
 jobs:
   preview:
@@ -13,14 +13,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get changed workflow files
+        id: changed
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }} ${{ github.sha }} -- workflows/*.json | xargs)
+          echo "changed_files=$CHANGED" >> $GITHUB_OUTPUT
+
       - name: Install tools
         run: |
           npm install -g @mermaid-js/mermaid-cli jq
 
       - name: Generate workflow previews
+        if: steps.changed.outputs.changed_files != ''
         run: |
           mkdir -p previews
-          for f in workflows/*.json; do
+          for f in ${{ steps.changed.outputs.changed_files }}; do
             name=$(basename "$f" .json)
             jq -r '
               "graph TD\n" +
@@ -31,18 +39,21 @@ jobs:
           done
 
       - name: Upload preview images
+        if: steps.changed.outputs.changed_files != ''
         uses: actions/upload-artifact@v4
         with:
           name: workflow-previews
           path: previews/
 
       - name: Upload images to PR
+        if: steps.changed.outputs.changed_files != ''
         uses: devicons/public-upload-action@v1
         with:
           files: "previews/*.png"
         id: upload
 
       - name: Comment on PR with previews
+        if: steps.changed.outputs.changed_files != ''
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: n8n-preview
